@@ -1,0 +1,101 @@
+# ParcelTrack.http: requests you send with one click.
+# In Visual Studio, open this file and click "Send request" above a request.
+#
+# @host is the address in your browser when you press F5 (the http profile).
+@host = http://localhost:5420
+
+@staff_token = {{staffLogin.response.body.$.token}}
+@admin_token = {{adminLogin.response.body.$.token}}
+
+### 1. Every parcel, with fees. Expect 200 OK (fees 800, 650, 1250, 2000, 1250)
+GET {{host}}/api/parcels
+
+### 2. Add a parcel with no token. Expect 401 Unauthorized
+POST {{host}}/api/parcels
+Content-Type: application/json
+
+{
+  "trackingCode": "PT-200201",
+  "recipient": "Damion Clarke",
+  "weightKg": 4.2,
+  "status": "Received",
+  "branchId": 5
+}
+
+### 3. Log in as Staff. Expect 200 OK + token
+# @name staffLogin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "staff@parceltrack.test",
+  "password": "Pass123!"
+}
+
+### 4. Log in as Staff with the wrong password. Expect 401 Unauthorized
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "staff@parceltrack.test",
+  "password": "WrongPass1!"
+}
+
+### 5. Request 2 again, with the Staff token. Expect 201 Created + Location header
+POST {{host}}/api/parcels
+Authorization: Bearer {{staff_token}}
+Content-Type: application/json
+X-Client: Branch desk
+
+{
+  "trackingCode": "PT-200201",
+  "recipient": "Damion Clarke",
+  "weightKg": 4.2,
+  "status": "Received",
+  "branchId": 5
+}
+
+### 6. Staff token, bad tracking code AB-12. Expect 400 Bad Request: "Tracking code must look like PT-123456"
+POST {{host}}/api/parcels
+Authorization: Bearer {{staff_token}}
+Content-Type: application/json
+
+{
+  "trackingCode": "AB-12",
+  "recipient": "Damion Clarke",
+  "weightKg": 4.2,
+  "status": "Received",
+  "branchId": 5
+}
+
+### 7. Staff token, no X-Client header. Expect 400 Bad Request: "Say which program is calling: add an X-Client header"
+POST {{host}}/api/parcels
+Authorization: Bearer {{staff_token}}
+Content-Type: application/json
+
+{
+  "trackingCode": "PT-200202",
+  "recipient": "Nadine Walker",
+  "weightKg": 1.0,
+  "status": "Received",
+  "branchId": 1
+}
+
+### 8. Delete parcel 5 with the Staff token. Expect 403 Forbidden
+DELETE {{host}}/api/parcels/5
+Authorization: Bearer {{staff_token}}
+
+### 9. Log in as Admin. Expect 200 OK + token
+# @name adminLogin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@parceltrack.test",
+  "password": "Pass123!"
+}
+
+### 10. Delete parcel 5 with the Admin token. Expect 204 No Content
+DELETE {{host}}/api/parcels/5
+Authorization: Bearer {{admin_token}}
+X-Client: Branch desk
